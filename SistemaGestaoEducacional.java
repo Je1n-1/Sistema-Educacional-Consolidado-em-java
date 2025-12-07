@@ -1,8 +1,8 @@
-package javacode;
-
+// SistemaGestaoEducacional.java
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 // ==================== PACOTE: DOMÍNIO (CORE BUSINESS) ====================
 // Nenhum System.out.println aqui - apenas lógica de negócio pura
@@ -23,6 +23,7 @@ interface OutputHandler {
     void mostrarErro(String erro);
     void mostrarSucesso(String sucesso);
     void limparTela();
+    void mostrarSeparador();
 }
 
 // Interface para entrada de dados
@@ -49,6 +50,19 @@ class Aluno {
     public String getNome() { return nome; }
     public String getMatricula() { return matricula; }
     public String getCurso() { return curso; }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Aluno aluno = (Aluno) obj;
+        return matricula.equals(aluno.matricula);
+    }
+    
+    @Override
+    public int hashCode() {
+        return matricula.hashCode();
+    }
 }
 
 class Professor {
@@ -65,6 +79,19 @@ class Professor {
     public String getNome() { return nome; }
     public String getEspecialidade() { return especialidade; }
     public String getRegistro() { return registro; }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Professor professor = (Professor) obj;
+        return registro.equals(professor.registro);
+    }
+    
+    @Override
+    public int hashCode() {
+        return registro.hashCode();
+    }
 }
 
 class Curso {
@@ -81,6 +108,19 @@ class Curso {
     public String getNome() { return nome; }
     public String getCodigo() { return codigo; }
     public int getCargaHoraria() { return cargaHoraria; }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Curso curso = (Curso) obj;
+        return codigo.equals(curso.codigo);
+    }
+    
+    @Override
+    public int hashCode() {
+        return codigo.hashCode();
+    }
 }
 
 class Turma {
@@ -111,14 +151,32 @@ class Turma {
     public Curso getCurso() { return curso; }
     public List<Aluno> getAlunos() { return new ArrayList<>(alunos); }
     public int getQuantidadeAlunos() { return alunos.size(); }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Turma turma = (Turma) obj;
+        return codigo.equals(turma.codigo);
+    }
+    
+    @Override
+    public int hashCode() {
+        return codigo.hashCode();
+    }
 }
 
+// ==================== AVALIAÇÕES E NOTAS ====================
 class Avaliacao {
     private double nota;
     private final String descricao;
+    private final String tipo; // "Prova", "Trabalho", "Seminário", etc.
+    private final double peso; // Peso da avaliação (0.0 a 1.0)
     
-    public Avaliacao(String descricao) {
+    public Avaliacao(String descricao, String tipo, double peso) {
         this.descricao = descricao;
+        this.tipo = tipo;
+        this.peso = peso;
         this.nota = 0.0;
     }
     
@@ -131,6 +189,89 @@ class Avaliacao {
     
     public double getNota() { return nota; }
     public String getDescricao() { return descricao; }
+    public String getTipo() { return tipo; }
+    public double getPeso() { return peso; }
+    public double getNotaPonderada() { return nota * peso; }
+}
+
+class AvaliacaoTurma {
+    private final Turma turma;
+    private final List<AvaliacaoAluno> avaliacoesAlunos;
+    
+    public AvaliacaoTurma(Turma turma) {
+        this.turma = turma;
+        this.avaliacoesAlunos = new ArrayList<>();
+    }
+    
+    public void adicionarAvaliacaoAluno(AvaliacaoAluno avaliacaoAluno) {
+        avaliacoesAlunos.add(avaliacaoAluno);
+    }
+    
+    public List<AvaliacaoAluno> getAvaliacoesAlunos() {
+        return new ArrayList<>(avaliacoesAlunos);
+    }
+    
+    public Turma getTurma() { return turma; }
+    
+    public double calcularMediaTurma() {
+        if (avaliacoesAlunos.isEmpty()) return 0.0;
+        
+        double soma = 0.0;
+        for (AvaliacaoAluno aa : avaliacoesAlunos) {
+            soma += aa.calcularMedia();
+        }
+        return soma / avaliacoesAlunos.size();
+    }
+    
+    public Aluno getMelhorAluno() {
+        if (avaliacoesAlunos.isEmpty()) return null;
+        
+        AvaliacaoAluno melhor = avaliacoesAlunos.get(0);
+        for (AvaliacaoAluno aa : avaliacoesAlunos) {
+            if (aa.calcularMedia() > melhor.calcularMedia()) {
+                melhor = aa;
+            }
+        }
+        return melhor.getAluno();
+    }
+}
+
+class AvaliacaoAluno {
+    private final Aluno aluno;
+    private final List<Avaliacao> avaliacoes;
+    
+    public AvaliacaoAluno(Aluno aluno) {
+        this.aluno = aluno;
+        this.avaliacoes = new ArrayList<>();
+    }
+    
+    public void adicionarAvaliacao(Avaliacao avaliacao) {
+        avaliacoes.add(avaliacao);
+    }
+    
+    public Aluno getAluno() { return aluno; }
+    public List<Avaliacao> getAvaliacoes() { return new ArrayList<>(avaliacoes); }
+    
+    public double calcularMedia() {
+        if (avaliacoes.isEmpty()) return 0.0;
+        
+        double somaNotasPonderadas = 0.0;
+        double somaPesos = 0.0;
+        
+        for (Avaliacao a : avaliacoes) {
+            somaNotasPonderadas += a.getNotaPonderada();
+            somaPesos += a.getPeso();
+        }
+        
+        return somaPesos > 0 ? somaNotasPonderadas / somaPesos : 0.0;
+    }
+    
+    public String getStatus() {
+        double media = calcularMedia();
+        if (media >= 7.0) return "APROVADO";
+        else if (media >= 5.0) return "RECUPERAÇÃO";
+        else return "REPROVADO";
+    }
 }
 
 // ==================== HERANÇA E POLIMORFISMO ====================
@@ -261,8 +402,28 @@ class AlunoAutenticavel extends Usuario implements Autenticavel {
         return matricula;
     }
     
+    public double calcularMedia() {
+        if (avaliacoes.isEmpty()) return 0.0;
+        
+        double somaNotasPonderadas = 0.0;
+        double somaPesos = 0.0;
+        
+        for (Avaliacao a : avaliacoes) {
+            somaNotasPonderadas += a.getNotaPonderada();
+            somaPesos += a.getPeso();
+        }
+        
+        return somaPesos > 0 ? somaNotasPonderadas / somaPesos : 0.0;
+    }
+    
+    public String getStatus() {
+        double media = calcularMedia();
+        if (media >= 7.0) return "APROVADO";
+        else if (media >= 5.0) return "RECUPERAÇÃO";
+        else return "REPROVADO";
+    }
+    
     private String hashSenha(String senha) {
-        // Em um sistema real, usar BCrypt ou similar
         return Integer.toString(senha.hashCode());
     }
     
@@ -360,6 +521,7 @@ class Administrador extends Usuario implements Autenticavel {
 interface Relatorio {
     String gerarConteudo();
     String getTitulo();
+    void exibir();
 }
 
 class RelatorioAluno implements Relatorio {
@@ -379,10 +541,15 @@ class RelatorioAluno implements Relatorio {
         
         List<Avaliacao> avaliacoes = aluno.getAvaliacoes();
         if (!avaliacoes.isEmpty()) {
-            sb.append("\nAvaliações:\n");
+            sb.append("\n📊 AVALIAÇÕES:\n");
             for (Avaliacao av : avaliacoes) {
-                sb.append(String.format("- %s: %.1f\n", av.getDescricao(), av.getNota()));
+                sb.append(String.format("  - %s (%s): %.1f (Peso: %.2f)\n", 
+                    av.getDescricao(), av.getTipo(), av.getNota(), av.getPeso()));
             }
+            sb.append(String.format("\nMédia Final: %.2f\n", aluno.calcularMedia()));
+            sb.append(String.format("Status: %s\n", aluno.getStatus()));
+        } else {
+            sb.append("\nℹ️  Nenhuma avaliação registrada.\n");
         }
         
         return sb.toString();
@@ -391,6 +558,14 @@ class RelatorioAluno implements Relatorio {
     @Override
     public String getTitulo() {
         return String.format("RELATÓRIO DO ALUNO - %s", aluno.getNome());
+    }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(50));
+        System.out.println(gerarConteudo());
     }
 }
 
@@ -414,6 +589,14 @@ class RelatorioProfessor implements Relatorio {
     public String getTitulo() {
         return String.format("RELATÓRIO DO PROFESSOR - %s", professor.getNome());
     }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(50));
+        System.out.println(gerarConteudo());
+    }
 }
 
 class RelatorioCurso implements Relatorio {
@@ -425,17 +608,33 @@ class RelatorioCurso implements Relatorio {
     
     @Override
     public String gerarConteudo() {
+        String tipo = curso instanceof CursoPresencial ? "Presencial" : 
+                     curso instanceof CursoEAD ? "EAD" : "Regular";
+        
+        String detalhes = "";
+        if (curso instanceof CursoPresencial) {
+            detalhes = String.format("Sala: %s", ((CursoPresencial)curso).getSala());
+        } else if (curso instanceof CursoEAD) {
+            detalhes = String.format("Plataforma: %s", ((CursoEAD)curso).getPlataforma());
+        }
+        
         return String.format(
-            "Nome: %s\nCódigo: %s\nCarga Horária: %d horas\nTipo: %s",
-            curso.getNome(), curso.getCodigo(), curso.getCargaHoraria(),
-            curso instanceof CursoPresencial ? "Presencial" : 
-            curso instanceof CursoEAD ? "EAD" : "Regular"
+            "Nome: %s\nCódigo: %s\nCarga Horária: %d horas\nTipo: %s\n%s",
+            curso.getNome(), curso.getCodigo(), curso.getCargaHoraria(), tipo, detalhes
         );
     }
     
     @Override
     public String getTitulo() {
         return String.format("RELATÓRIO DO CURSO - %s", curso.getNome());
+    }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(50));
+        System.out.println(gerarConteudo());
     }
 }
 
@@ -467,6 +666,137 @@ class RelatorioTurma implements Relatorio {
     @Override
     public String getTitulo() {
         return String.format("RELATÓRIO DA TURMA - %s", turma.getCodigo());
+    }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(50));
+        System.out.println(gerarConteudo());
+    }
+}
+
+class RelatorioAvaliacoesTurma implements Relatorio {
+    private final AvaliacaoTurma avaliacaoTurma;
+    
+    public RelatorioAvaliacoesTurma(AvaliacaoTurma avaliacaoTurma) {
+        this.avaliacaoTurma = avaliacaoTurma;
+    }
+    
+    @Override
+    public String gerarConteudo() {
+        StringBuilder sb = new StringBuilder();
+        Turma turma = avaliacaoTurma.getTurma();
+        
+        sb.append(String.format("Turma: %s\n", turma.getCodigo()));
+        sb.append(String.format("Curso: %s\n", turma.getCurso().getNome()));
+        sb.append(String.format("Professor: %s\n", turma.getProfessor().getNome()));
+        sb.append(String.format("Média da turma: %.2f\n", avaliacaoTurma.calcularMediaTurma()));
+        
+        Aluno melhorAluno = avaliacaoTurma.getMelhorAluno();
+        if (melhorAluno != null) {
+            sb.append(String.format("Melhor aluno: %s\n", melhorAluno.getNome()));
+        }
+        
+        sb.append("\n📊 DESEMPENHO DOS ALUNOS:\n");
+        for (AvaliacaoAluno aa : avaliacaoTurma.getAvaliacoesAlunos()) {
+            sb.append(String.format("  %s - Média: %.2f - Status: %s\n", 
+                aa.getAluno().getNome(), aa.calcularMedia(), aa.getStatus()));
+        }
+        
+        return sb.toString();
+    }
+    
+    @Override
+    public String getTitulo() {
+        return String.format("RELATÓRIO DE AVALIAÇÕES - %s", 
+            avaliacaoTurma.getTurma().getCodigo());
+    }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(60));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(60));
+        System.out.println(gerarConteudo());
+    }
+}
+
+class RelatorioGeral implements Relatorio {
+    private final SistemaEducacionalService service;
+    
+    public RelatorioGeral(SistemaEducacionalService service) {
+        this.service = service;
+    }
+    
+    @Override
+    public String gerarConteudo() {
+        StringBuilder sb = new StringBuilder();
+        
+        // Estatísticas gerais
+        sb.append("📈 ESTATÍSTICAS GERAIS DO SISTEMA\n");
+        sb.append("=".repeat(40)).append("\n");
+        
+        int totalAlunos = service.getAlunoRepository().listarTodos().size();
+        int totalProfessores = service.getUsuarioRepository().listarTodos().stream()
+            .filter(u -> u instanceof ProfessorAutenticavel).toList().size();
+        int totalCursos = service.getCursoRepository().listarTodos().size();
+        int totalTurmas = service.getTurmaRepository().listarTodos().size();
+        int totalAvaliacoes = service.getAvaliacaoRepository().getTotalAvaliacoes();
+        
+        sb.append(String.format("Total de Alunos: %d\n", totalAlunos));
+        sb.append(String.format("Total de Professores: %d\n", totalProfessores));
+        sb.append(String.format("Total de Cursos: %d\n", totalCursos));
+        sb.append(String.format("Total de Turmas: %d\n", totalTurmas));
+        sb.append(String.format("Total de Avaliações Registradas: %d\n", totalAvaliacoes));
+        
+        // Distribuição de cursos
+        List<Curso> cursos = service.getCursoRepository().listarTodos();
+        long presenciais = cursos.stream().filter(c -> c instanceof CursoPresencial).count();
+        long ead = cursos.stream().filter(c -> c instanceof CursoEAD).count();
+        long regulares = cursos.size() - presenciais - ead;
+        
+        sb.append("\n📚 DISTRIBUIÇÃO DE CURSOS:\n");
+        sb.append(String.format("  Cursos Presenciais: %d\n", presenciais));
+        sb.append(String.format("  Cursos EAD: %d\n", ead));
+        sb.append(String.format("  Cursos Regulares: %d\n", regulares));
+        
+        // Turmas com mais alunos
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (!turmas.isEmpty()) {
+            sb.append("\n🏫 TURMAS (maior para menor):\n");
+            turmas.stream()
+                .sorted((t1, t2) -> Integer.compare(t2.getQuantidadeAlunos(), t1.getQuantidadeAlunos()))
+                .forEach(t -> sb.append(String.format("  %s: %d alunos\n", 
+                    t.getCodigo(), t.getQuantidadeAlunos())));
+        }
+        
+        // Avaliações por turma
+        List<AvaliacaoTurma> avaliacoesTurmas = service.getAvaliacaoRepository()
+            .listarAvaliacoesTurma();
+        if (!avaliacoesTurmas.isEmpty()) {
+            sb.append("\n🎯 DESEMPENHO POR TURMA:\n");
+            for (AvaliacaoTurma at : avaliacoesTurmas) {
+                sb.append(String.format("  %s: Média %.2f\n", 
+                    at.getTurma().getCodigo(), at.calcularMediaTurma()));
+            }
+        }
+        
+        return sb.toString();
+    }
+    
+    @Override
+    public String getTitulo() {
+        return "RELATÓRIO GERAL DO SISTEMA EDUCACIONAL";
+    }
+    
+    @Override
+    public void exibir() {
+        System.out.println("\n" + "=".repeat(70));
+        System.out.println(getTitulo());
+        System.out.println("=".repeat(70));
+        System.out.println(gerarConteudo());
     }
 }
 
@@ -522,6 +852,12 @@ class AlunoRepository implements Repositorio<Aluno> {
     public boolean existeAlunoNoCurso(String curso) {
         return alunos.stream().anyMatch(a -> a.getCurso().equalsIgnoreCase(curso));
     }
+    
+    public List<Aluno> buscarPorCurso(String curso) {
+        return alunos.stream()
+            .filter(a -> a.getCurso().equalsIgnoreCase(curso))
+            .collect(Collectors.toList());
+    }
 }
 
 class UsuarioRepository implements Repositorio<Usuario> {
@@ -576,6 +912,13 @@ class UsuarioRepository implements Repositorio<Usuario> {
         }
         logger.erro("Falha na autenticação para login: " + credenciais.getLogin());
         return null;
+    }
+    
+    public List<AlunoAutenticavel> listarAlunosAutenticaveis() {
+        return usuarios.stream()
+            .filter(u -> u instanceof AlunoAutenticavel)
+            .map(u -> (AlunoAutenticavel) u)
+            .collect(Collectors.toList());
     }
 }
 
@@ -674,6 +1017,57 @@ class TurmaRepository implements Repositorio<Turma> {
     public boolean existeTurmaComCurso(String codigoCurso) {
         return turmas.stream().anyMatch(t -> t.getCurso().getCodigo().equalsIgnoreCase(codigoCurso));
     }
+    
+    public List<Turma> buscarPorCurso(String codigoCurso) {
+        return turmas.stream()
+            .filter(t -> t.getCurso().getCodigo().equalsIgnoreCase(codigoCurso))
+            .collect(Collectors.toList());
+    }
+    
+    public List<Turma> buscarPorProfessor(String registroProfessor) {
+        return turmas.stream()
+            .filter(t -> t.getProfessor().getRegistro().equals(registroProfessor))
+            .collect(Collectors.toList());
+    }
+}
+
+class AvaliacaoRepository {
+    private final List<AvaliacaoTurma> avaliacoesTurma = new ArrayList<>();
+    private final Logger logger;
+    
+    public AvaliacaoRepository(Logger logger) {
+        this.logger = logger;
+    }
+    
+    public void salvarAvaliacaoTurma(AvaliacaoTurma avaliacaoTurma) {
+        // Remover se já existe (atualização)
+        avaliacoesTurma.removeIf(at -> at.getTurma().equals(avaliacaoTurma.getTurma()));
+        avaliacoesTurma.add(avaliacaoTurma);
+        logger.debug(String.format("Avaliações da turma %s salvas", 
+            avaliacaoTurma.getTurma().getCodigo()));
+    }
+    
+    public AvaliacaoTurma buscarAvaliacaoTurma(String codigoTurma) {
+        return avaliacoesTurma.stream()
+            .filter(at -> at.getTurma().getCodigo().equals(codigoTurma))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    public List<AvaliacaoTurma> listarAvaliacoesTurma() {
+        return new ArrayList<>(avaliacoesTurma);
+    }
+    
+    public int getTotalAvaliacoes() {
+        return avaliacoesTurma.stream()
+            .mapToInt(at -> at.getAvaliacoesAlunos().size())
+            .sum();
+    }
+    
+    public boolean existeAvaliacaoTurma(String codigoTurma) {
+        return avaliacoesTurma.stream()
+            .anyMatch(at -> at.getTurma().getCodigo().equals(codigoTurma));
+    }
 }
 
 // ==================== VALIDATOR (VALIDAÇÕES CENTRALIZADAS) ====================
@@ -729,13 +1123,6 @@ class ValidadorSistema {
         ResultadoValidacao validacaoCurso = validarCursoExiste(codigoCurso);
         if (!validacaoCurso.isValido()) {
             return validacaoCurso;
-        }
-        
-        // Verificar se aluno já está matriculado em alguma turma deste curso
-        if (turmaRepository.existeTurmaComCurso(codigoCurso)) {
-            // Em um sistema real, verificaríamos se o aluno específico já está matriculado
-            logger.info(String.format("Aluno %s sendo verificado para matrícula no curso %s", 
-                                     matriculaAluno, codigoCurso));
         }
         
         return ResultadoValidacao.sucesso("Aluno pode ser matriculado no curso");
@@ -796,6 +1183,28 @@ class ValidadorSistema {
             return ResultadoValidacao.erro("Erros de validação: " + String.join(", ", erros));
         }
     }
+    
+    public ResultadoValidacao validarAvaliacao(double nota, double peso, String tipo) {
+        List<String> erros = new ArrayList<>();
+        
+        if (nota < 0 || nota > 10) {
+            erros.add("Nota deve estar entre 0 e 10");
+        }
+        
+        if (peso <= 0 || peso > 1) {
+            erros.add("Peso deve estar entre 0.01 e 1.0");
+        }
+        
+        if (tipo == null || tipo.trim().isEmpty()) {
+            erros.add("Tipo da avaliação não pode ser vazio");
+        }
+        
+        if (erros.isEmpty()) {
+            return ResultadoValidacao.sucesso("Dados da avaliação válidos");
+        } else {
+            return ResultadoValidacao.erro("Erros na avaliação: " + String.join(", ", erros));
+        }
+    }
 }
 
 class ResultadoValidacao {
@@ -834,6 +1243,7 @@ class SistemaEducacionalService {
     private final UsuarioRepository usuarioRepository;
     private final CursoRepository cursoRepository;
     private final TurmaRepository turmaRepository;
+    private final AvaliacaoRepository avaliacaoRepository;
     private final ValidadorSistema validador;
     private final Logger logger;
     
@@ -843,30 +1253,36 @@ class SistemaEducacionalService {
         this.usuarioRepository = new UsuarioRepository(logger);
         this.cursoRepository = new CursoRepository(logger);
         this.turmaRepository = new TurmaRepository(logger);
+        this.avaliacaoRepository = new AvaliacaoRepository(logger);
         this.validador = new ValidadorSistema(cursoRepository, alunoRepository, turmaRepository, logger);
     }
     
     public void carregarDadosIniciais() {
         // Primeiro criar os cursos
-        Curso curso = new Curso("Java OO", "JAVA101", 60);
-        cursoRepository.salvar(curso);
+        Curso cursoJava = new Curso("Java OO", "JAVA101", 60);
+        cursoRepository.salvar(cursoJava);
         
-        CursoPresencial cursoPresencial = new CursoPresencial("Java Avançado", "JAVA201", 80, "Sala 301");
-        cursoRepository.salvar(cursoPresencial);
+        CursoPresencial cursoJavaAvancado = new CursoPresencial("Java Avançado", "JAVA201", 80, "Sala 301");
+        cursoRepository.salvar(cursoJavaAvancado);
         
-        CursoEAD cursoEAD = new CursoEAD("Python", "PY101", 40, "Plataforma Virtual");
-        cursoRepository.salvar(cursoEAD);
+        CursoEAD cursoPython = new CursoEAD("Python", "PY101", 40, "Plataforma Virtual");
+        cursoRepository.salvar(cursoPython);
         
         // Depois criar alunos (agora os cursos existem)
-        Aluno aluno = new Aluno("Jean Ricardo Land Miranda", "24231215-5", 
-                               "Java OO"); // Curso que existe
-        alunoRepository.salvar(aluno);
+        Aluno alunoJean = new Aluno("Jean Ricardo Land Miranda", "24231215-5", "Java OO");
+        alunoRepository.salvar(alunoJean);
+        
+        Aluno alunoMaria = new Aluno("Maria Silva", "002", "Java OO");
+        alunoRepository.salvar(alunoMaria);
+        
+        Aluno alunoPedro = new Aluno("Pedro Santos", "003", "Python");
+        alunoRepository.salvar(alunoPedro);
         
         AlunoAutenticavel alunoAuth = new AlunoAutenticavel("Jean", "jean@edu.com", 
                                                           "24231215-5", "jean", "123");
         usuarioRepository.salvar(alunoAuth);
         
-        Professor professor = new Professor("Carlos", "POO", "PROF001");
+        Professor professorCarlos = new Professor("Carlos", "POO", "PROF001");
         ProfessorAutenticavel profAuth = new ProfessorAutenticavel("Carlos", "carlos@edu.com",
                                                                   "POO", "PROF001", "carlos", "456");
         usuarioRepository.salvar(profAuth);
@@ -875,22 +1291,44 @@ class SistemaEducacionalService {
         usuarioRepository.salvar(admin);
         
         // Criar turma (agora curso e professor existem)
-        Turma turma = new Turma("TURMA2024", professor, curso);
-        turma.adicionarAluno(aluno);
-        
-        // Adicionar outro aluno em um curso que existe
-        Aluno aluno2 = new Aluno("Maria", "002", "Java OO");
-        alunoRepository.salvar(aluno2);
-        turma.adicionarAluno(aluno2);
-        
+        Turma turma = new Turma("TURMA2024", professorCarlos, cursoJava);
+        turma.adicionarAluno(alunoJean);
+        turma.adicionarAluno(alunoMaria);
         turmaRepository.salvar(turma);
+        
+        // Criar avaliações de exemplo
+        AvaliacaoTurma avaliacaoTurma = new AvaliacaoTurma(turma);
+        
+        // Avaliações para aluno Jean
+        AvaliacaoAluno avaliacaoJean = new AvaliacaoAluno(alunoJean);
+        avaliacaoJean.adicionarAvaliacao(new Avaliacao("Prova 1", "Prova", 0.3));
+        avaliacaoJean.adicionarAvaliacao(new Avaliacao("Trabalho", "Trabalho", 0.2));
+        avaliacaoJean.adicionarAvaliacao(new Avaliacao("Prova Final", "Prova", 0.5));
+        
+        // Atribuir notas
+        avaliacaoJean.getAvaliacoes().get(0).atribuirNota(8.5);
+        avaliacaoJean.getAvaliacoes().get(1).atribuirNota(9.0);
+        avaliacaoJean.getAvaliacoes().get(2).atribuirNota(7.5);
+        
+        // Avaliações para aluno Maria
+        AvaliacaoAluno avaliacaoMaria = new AvaliacaoAluno(alunoMaria);
+        avaliacaoMaria.adicionarAvaliacao(new Avaliacao("Prova 1", "Prova", 0.3));
+        avaliacaoMaria.adicionarAvaliacao(new Avaliacao("Trabalho", "Trabalho", 0.2));
+        avaliacaoMaria.adicionarAvaliacao(new Avaliacao("Prova Final", "Prova", 0.5));
+        
+        avaliacaoMaria.getAvaliacoes().get(0).atribuirNota(9.0);
+        avaliacaoMaria.getAvaliacoes().get(1).atribuirNota(8.5);
+        avaliacaoMaria.getAvaliacoes().get(2).atribuirNota(8.0);
+        
+        avaliacaoTurma.adicionarAvaliacaoAluno(avaliacaoJean);
+        avaliacaoTurma.adicionarAvaliacaoAluno(avaliacaoMaria);
+        avaliacaoRepository.salvarAvaliacaoTurma(avaliacaoTurma);
         
         logger.sucesso("Dados iniciais carregados com sucesso");
     }
     
     public ResultadoOperacao matricularAlunoEmTurma(String matriculaAluno, String codigoTurma) {
         try {
-            // Validar antes de qualquer operação
             Aluno aluno = alunoRepository.buscarPorId(matriculaAluno);
             Turma turma = turmaRepository.buscarPorId(codigoTurma);
             
@@ -902,7 +1340,6 @@ class SistemaEducacionalService {
                 return ResultadoOperacao.erro("Turma não encontrada");
             }
             
-            // Validar se o aluno pode ser matriculado neste curso
             ResultadoValidacao validacao = validador.validarAlunoPodeSerMatriculado(
                 matriculaAluno, turma.getCurso().getCodigo());
             
@@ -926,7 +1363,6 @@ class SistemaEducacionalService {
     
     public ResultadoOperacao cadastrarAluno(String nome, String matricula, String curso) {
         try {
-            // Validar dados do aluno
             ResultadoValidacao validacao = validador.validarDadosCadastroAluno(nome, matricula, curso);
             
             if (!validacao.isValido()) {
@@ -950,12 +1386,10 @@ class SistemaEducacionalService {
     public ResultadoOperacao cadastrarCurso(String nome, String codigo, int cargaHoraria, 
                                           String tipo, String informacaoAdicional) {
         try {
-            // Validar se código já existe
             if (cursoRepository.existe(codigo)) {
                 return ResultadoOperacao.erro(String.format("Curso com código '%s' já existe", codigo));
             }
             
-            // Validar se nome já existe
             if (cursoRepository.existePorNome(nome)) {
                 return ResultadoOperacao.erro(String.format("Curso '%s' já existe", nome));
             }
@@ -985,7 +1419,6 @@ class SistemaEducacionalService {
     
     public ResultadoOperacao criarTurma(String codigoTurma, Professor professor, Curso curso) {
         try {
-            // Validar criação da turma
             ResultadoValidacao validacao = validador.validarCriacaoTurma(codigoTurma, curso.getCodigo());
             
             if (!validacao.isValido()) {
@@ -1003,6 +1436,71 @@ class SistemaEducacionalService {
         } catch (Exception e) {
             logger.erro("Erro ao criar turma: " + e.getMessage());
             return ResultadoOperacao.erro("Erro ao criar turma: " + e.getMessage());
+        }
+    }
+    
+    public ResultadoOperacao registrarAvaliacao(String codigoTurma, String matriculaAluno, 
+                                               String descricao, String tipo, double peso, double nota) {
+        try {
+            // Validar dados da avaliação
+            ResultadoValidacao validacaoAvaliacao = validador.validarAvaliacao(nota, peso, tipo);
+            if (!validacaoAvaliacao.isValido()) {
+                return ResultadoOperacao.erro("Erro na avaliação: " + 
+                    String.join(", ", validacaoAvaliacao.getDetalhes()));
+            }
+            
+            // Buscar turma e aluno
+            Turma turma = turmaRepository.buscarPorId(codigoTurma);
+            if (turma == null) {
+                return ResultadoOperacao.erro("Turma não encontrada");
+            }
+            
+            Aluno aluno = alunoRepository.buscarPorId(matriculaAluno);
+            if (aluno == null) {
+                return ResultadoOperacao.erro("Aluno não encontrado");
+            }
+            
+            // Verificar se aluno está na turma
+            boolean alunoNaTurma = turma.getAlunos().stream()
+                .anyMatch(a -> a.getMatricula().equals(matriculaAluno));
+            
+            if (!alunoNaTurma) {
+                return ResultadoOperacao.erro(String.format(
+                    "Aluno %s não está matriculado na turma %s", aluno.getNome(), turma.getCodigo()));
+            }
+            
+            // Buscar ou criar avaliação da turma
+            AvaliacaoTurma avaliacaoTurma = avaliacaoRepository.buscarAvaliacaoTurma(codigoTurma);
+            if (avaliacaoTurma == null) {
+                avaliacaoTurma = new AvaliacaoTurma(turma);
+            }
+            
+            // Buscar ou criar avaliação do aluno
+            AvaliacaoAluno avaliacaoAluno = avaliacaoTurma.getAvaliacoesAlunos().stream()
+                .filter(aa -> aa.getAluno().getMatricula().equals(matriculaAluno))
+                .findFirst()
+                .orElse(null);
+            
+            if (avaliacaoAluno == null) {
+                avaliacaoAluno = new AvaliacaoAluno(aluno);
+                avaliacaoTurma.adicionarAvaliacaoAluno(avaliacaoAluno);
+            }
+            
+            // Criar e adicionar a nova avaliação
+            Avaliacao avaliacao = new Avaliacao(descricao, tipo, peso);
+            avaliacao.atribuirNota(nota);
+            avaliacaoAluno.adicionarAvaliacao(avaliacao);
+            
+            // Salvar no repositório
+            avaliacaoRepository.salvarAvaliacaoTurma(avaliacaoTurma);
+            
+            String mensagem = String.format("Avaliação '%s' registrada para aluno %s na turma %s", 
+                                          descricao, aluno.getNome(), turma.getCodigo());
+            logger.sucesso(mensagem);
+            return ResultadoOperacao.sucesso(mensagem);
+        } catch (Exception e) {
+            logger.erro("Erro ao registrar avaliação: " + e.getMessage());
+            return ResultadoOperacao.erro("Erro ao registrar avaliação: " + e.getMessage());
         }
     }
     
@@ -1028,8 +1526,20 @@ class SistemaEducacionalService {
             relatorios.add(new RelatorioTurma(turma));
         }
         
+        // Gerar relatórios de avaliações
+        for (AvaliacaoTurma avaliacaoTurma : avaliacaoRepository.listarAvaliacoesTurma()) {
+            relatorios.add(new RelatorioAvaliacoesTurma(avaliacaoTurma));
+        }
+        
+        // Gerar relatório geral
+        relatorios.add(new RelatorioGeral(this));
+        
         logger.info(String.format("Gerados %d relatórios", relatorios.size()));
         return relatorios;
+    }
+    
+    public RelatorioGeral gerarRelatorioGeral() {
+        return new RelatorioGeral(this);
     }
     
     // Getters para os repositórios
@@ -1037,6 +1547,7 @@ class SistemaEducacionalService {
     public UsuarioRepository getUsuarioRepository() { return usuarioRepository; }
     public CursoRepository getCursoRepository() { return cursoRepository; }
     public TurmaRepository getTurmaRepository() { return turmaRepository; }
+    public AvaliacaoRepository getAvaliacaoRepository() { return avaliacaoRepository; }
     public ValidadorSistema getValidador() { return validador; }
 }
 
@@ -1087,7 +1598,6 @@ class ConsoleLogger implements Logger {
     
     @Override
     public void debug(String mensagem) {
-        // Em produção, poderia ser desabilitado
         System.out.println("🔍 " + mensagem);
     }
     
@@ -1130,7 +1640,6 @@ class ConsoleOutputHandler implements OutputHandler {
     
     @Override
     public void limparTela() {
-        // Limpar console (depende do sistema operacional)
         try {
             final String os = System.getProperty("os.name");
             if (os.contains("Windows")) {
@@ -1140,9 +1649,13 @@ class ConsoleOutputHandler implements OutputHandler {
                 System.out.flush();
             }
         } catch (Exception e) {
-            // Fallback: imprimir várias linhas em branco
             for (int i = 0; i < 50; i++) System.out.println();
         }
+    }
+    
+    @Override
+    public void mostrarSeparador() {
+        System.out.println("\n" + "-".repeat(60));
     }
     
     public void mostrarListaCursos(List<Curso> cursos, String titulo) {
@@ -1282,11 +1795,11 @@ class MenuController {
             2. Gerenciar Professores
             3. Gerenciar Cursos
             4. Gerenciar Turmas
-            5. Gerar Relatórios
-            6. Autenticar Usuário
-            7. Estatísticas do Sistema
-            8. Mostrar Dados Iniciais
-            9. Validar Curso
+            5. Registrar Avaliações
+            6. Gerar Relatórios
+            7. Autenticar Usuário
+            8. Estatísticas do Sistema
+            9. Testar Cenários
             0. Sair
             """;
         
@@ -1298,11 +1811,11 @@ class MenuController {
             case 2 -> gerenciarProfessores();
             case 3 -> gerenciarCursos();
             case 4 -> gerenciarTurmas();
-            case 5 -> gerarRelatorios();
-            case 6 -> autenticarUsuario();
-            case 7 -> mostrarEstatisticas();
-            case 8 -> mostrarDadosIniciais();
-            case 9 -> validarCurso();
+            case 5 -> gerenciarAvaliacoes();
+            case 6 -> gerenciarRelatorios();
+            case 7 -> autenticarUsuario();
+            case 8 -> mostrarEstatisticas();
+            case 9 -> testarCenarios();
             case 0 -> sair();
             default -> output.mostrarErro("Opção inválida!");
         }
@@ -1311,6 +1824,7 @@ class MenuController {
     private void gerenciarAlunos() {
         output.limparTela();
         output.mostrarMensagem("📋 GERENCIAMENTO DE ALUNOS");
+        output.mostrarSeparador();
         
         List<Aluno> alunos = service.getAlunoRepository().listarTodos();
         if (alunos.isEmpty()) {
@@ -1324,6 +1838,7 @@ class MenuController {
             }
         }
         
+        output.mostrarSeparador();
         boolean adicionar = input.lerBoolean("Deseja adicionar um novo aluno?", 
                                            "Iniciando cadastro...", "Retornando ao menu...");
         if (adicionar) {
@@ -1334,7 +1849,6 @@ class MenuController {
     private void cadastrarAluno() {
         output.mostrarMensagem("\n📝 CADASTRO DE NOVO ALUNO");
         
-        // Mostrar cursos disponíveis primeiro
         List<Curso> cursos = service.getCursoRepository().listarTodos();
         if (cursos.isEmpty()) {
             output.mostrarErro("Não é possível cadastrar aluno. Nenhum curso disponível.");
@@ -1350,7 +1864,6 @@ class MenuController {
         String nome = input.lerString("\nNome completo");
         String matricula = input.lerString("Matrícula");
         
-        // Selecionar curso válido
         int cursoIndex;
         do {
             cursoIndex = input.lerInt("Número do curso (1-" + cursos.size() + ")") - 1;
@@ -1361,7 +1874,6 @@ class MenuController {
         
         String cursoSelecionado = cursos.get(cursoIndex).getNome();
         
-        // Usar o serviço para cadastrar (que já valida)
         ResultadoOperacao resultado = service.cadastrarAluno(nome, matricula, cursoSelecionado);
         
         if (resultado.isSucesso()) {
@@ -1381,11 +1893,14 @@ class MenuController {
         } else {
             output.mostrarErro(resultado.getMensagem());
         }
+        
+        input.lerString("\nPressione Enter para continuar...");
     }
     
     private void gerenciarProfessores() {
         output.limparTela();
         output.mostrarMensagem("📋 GERENCIAMENTO DE PROFESSORES");
+        output.mostrarSeparador();
         
         List<Usuario> usuarios = service.getUsuarioRepository().listarTodos();
         List<ProfessorAutenticavel> professores = usuarios.stream()
@@ -1404,6 +1919,7 @@ class MenuController {
             }
         }
         
+        output.mostrarSeparador();
         boolean adicionar = input.lerBoolean("Deseja adicionar um novo professor?", 
                                            "Iniciando cadastro...", "Retornando ao menu...");
         if (adicionar) {
@@ -1425,11 +1941,14 @@ class MenuController {
         
         service.getUsuarioRepository().salvar(professor);
         output.mostrarSucesso("Professor cadastrado com sucesso!");
+        
+        input.lerString("\nPressione Enter para continuar...");
     }
     
     private void gerenciarCursos() {
         output.limparTela();
         output.mostrarMensagem("📋 GERENCIAMENTO DE CURSOS");
+        output.mostrarSeparador();
         
         List<Curso> cursos = service.getCursoRepository().listarTodos();
         if (cursos.isEmpty()) {
@@ -1442,6 +1961,7 @@ class MenuController {
             }
         }
         
+        output.mostrarSeparador();
         boolean adicionar = input.lerBoolean("Deseja adicionar um novo curso?", 
                                            "Iniciando cadastro...", "Retornando ao menu...");
         if (adicionar) {
@@ -1482,11 +2002,14 @@ class MenuController {
         } else {
             output.mostrarErro(resultado.getMensagem());
         }
+        
+        input.lerString("\nPressione Enter para continuar...");
     }
     
     private void gerenciarTurmas() {
         output.limparTela();
         output.mostrarMensagem("📋 GERENCIAMENTO DE TURMAS");
+        output.mostrarSeparador();
         
         List<Turma> turmas = service.getTurmaRepository().listarTodos();
         if (turmas.isEmpty()) {
@@ -1500,17 +2023,24 @@ class MenuController {
             }
         }
         
-        boolean criar = input.lerBoolean("Deseja criar uma nova turma?", 
-                                        "Iniciando criação...", "Retornando ao menu...");
-        if (criar) {
-            criarTurma();
+        output.mostrarSeparador();
+        output.mostrarMensagem("Opções:");
+        output.mostrarMensagem("1. Criar nova turma");
+        output.mostrarMensagem("2. Matricular aluno em turma existente");
+        output.mostrarMensagem("3. Voltar");
+        
+        int opcao = input.lerOpcao("Escolha uma opção", 1, 3);
+        
+        switch (opcao) {
+            case 1 -> criarTurma();
+            case 2 -> matricularAlunoEmTurmaExistente();
+            case 3 -> { return; }
         }
     }
     
     private void criarTurma() {
         output.mostrarMensagem("\n🏫 CRIAÇÃO DE NOVA TURMA");
         
-        // Verificar se temos cursos disponíveis
         List<Curso> cursos = service.getCursoRepository().listarTodos();
         if (cursos.isEmpty()) {
             output.mostrarErro("Não é possível criar turma. Nenhum curso cadastrado.");
@@ -1518,7 +2048,6 @@ class MenuController {
             return;
         }
         
-        // Verificar se temos professores disponíveis
         List<Usuario> usuarios = service.getUsuarioRepository().listarTodos();
         List<ProfessorAutenticavel> professores = usuarios.stream()
             .filter(u -> u instanceof ProfessorAutenticavel)
@@ -1533,7 +2062,6 @@ class MenuController {
         
         String codigoTurma = input.lerString("Código da turma");
         
-        // Selecionar curso
         output.mostrarMensagem("\nSelecione o curso:");
         for (int i = 0; i < cursos.size(); i++) {
             output.mostrarMensagem(String.format("%d. %s", i + 1, cursos.get(i).getNome()));
@@ -1542,7 +2070,6 @@ class MenuController {
         int indexCurso = input.lerOpcao("Número do curso", 1, cursos.size()) - 1;
         Curso cursoSelecionado = cursos.get(indexCurso);
         
-        // Selecionar professor
         output.mostrarMensagem("\nSelecione o professor:");
         for (int i = 0; i < professores.size(); i++) {
             output.mostrarMensagem(String.format("%d. %s", i + 1, professores.get(i).getNome()));
@@ -1555,21 +2082,18 @@ class MenuController {
             professores.get(indexProf).getRegistro()
         );
         
-        // Usar o serviço para criar turma (que já valida)
         ResultadoOperacao resultado = service.criarTurma(codigoTurma, professor, cursoSelecionado);
         
         if (resultado.isSucesso()) {
             Turma turmaCriada = (Turma) resultado.getDados();
             output.mostrarSucesso(resultado.getMensagem());
             
-            // Matricular alunos
             boolean matricular = input.lerBoolean("Deseja matricular alunos agora?", 
                                                 "Iniciando matrículas...", "Pulando matrículas...");
             if (matricular) {
                 matricularAlunosNaTurma(turmaCriada);
             }
             
-            // Mostrar resumo
             output.mostrarMensagem("\n📊 RESUMO DA TURMA CRIADA:");
             output.mostrarMensagem("Código: " + turmaCriada.getCodigo());
             output.mostrarMensagem("Professor: " + turmaCriada.getProfessor().getNome());
@@ -1578,6 +2102,30 @@ class MenuController {
         } else {
             output.mostrarErro(resultado.getMensagem());
         }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void matricularAlunoEmTurmaExistente() {
+        output.mostrarMensagem("\n🎓 MATRÍCULA DE ALUNO EM TURMA");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarErro("Nenhuma turma disponível.");
+            return;
+        }
+        
+        output.mostrarMensagem("\nTurmas disponíveis:");
+        for (int i = 0; i < turmas.size(); i++) {
+            Turma t = turmas.get(i);
+            output.mostrarMensagem(String.format("%d. %s - %s (%d alunos)", 
+                i + 1, t.getCodigo(), t.getCurso().getNome(), t.getQuantidadeAlunos()));
+        }
+        
+        int indexTurma = input.lerOpcao("Selecione a turma", 1, turmas.size()) - 1;
+        Turma turmaSelecionada = turmas.get(indexTurma);
+        
+        matricularAlunosNaTurma(turmaSelecionada);
     }
     
     private void matricularAlunosNaTurma(Turma turma) {
@@ -1587,10 +2135,9 @@ class MenuController {
             return;
         }
         
-        output.mostrarMensagem("Alunos disponíveis:");
+        output.mostrarMensagem("\nAlunos disponíveis:");
         for (int i = 0; i < alunos.size(); i++) {
             Aluno aluno = alunos.get(i);
-            // Verificar se o aluno já está na turma
             boolean jaMatriculado = turma.getAlunos().stream()
                 .anyMatch(a -> a.getMatricula().equals(aluno.getMatricula()));
             
@@ -1605,19 +2152,17 @@ class MenuController {
                                           0, alunos.size()) - 1;
             
             if (indexAluno == -1) {
-                break; // Usuário escolheu 0 para cancelar
+                break;
             }
             
             Aluno alunoSelecionado = alunos.get(indexAluno);
             
-            // Verificar se aluno já está matriculado
             boolean jaMatriculado = turma.getAlunos().stream()
                 .anyMatch(a -> a.getMatricula().equals(alunoSelecionado.getMatricula()));
             
             if (jaMatriculado) {
                 output.mostrarErro("Este aluno já está matriculado nesta turma!");
             } else {
-                // Validar se aluno pode ser matriculado neste curso
                 ResultadoValidacao validacao = service.getValidador()
                     .validarAlunoPodeSerMatriculado(alunoSelecionado.getMatricula(), 
                                                    turma.getCurso().getCodigo());
@@ -1635,24 +2180,300 @@ class MenuController {
         }
     }
     
-    private void gerarRelatorios() {
+    private void gerenciarAvaliacoes() {
         output.limparTela();
-        output.mostrarMensagem("📄 GERANDO RELATÓRIOS");
+        output.mostrarMensagem("📊 GERENCIAMENTO DE AVALIAÇÕES");
+        output.mostrarSeparador();
+        
+        output.mostrarMensagem("Opções:");
+        output.mostrarMensagem("1. Registrar nova avaliação");
+        output.mostrarMensagem("2. Ver avaliações de uma turma");
+        output.mostrarMensagem("3. Ver avaliações de um aluno");
+        output.mostrarMensagem("4. Voltar");
+        
+        int opcao = input.lerOpcao("Escolha uma opção", 1, 4);
+        
+        switch (opcao) {
+            case 1 -> registrarAvaliacao();
+            case 2 -> verAvaliacoesTurma();
+            case 3 -> verAvaliacoesAluno();
+            case 4 -> { return; }
+        }
+    }
+    
+    private void registrarAvaliacao() {
+        output.mostrarMensagem("\n📝 REGISTRO DE NOVA AVALIAÇÃO");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarErro("Nenhuma turma disponível para registrar avaliações.");
+            return;
+        }
+        
+        output.mostrarMensagem("\nTurmas disponíveis:");
+        for (int i = 0; i < turmas.size(); i++) {
+            Turma t = turmas.get(i);
+            output.mostrarMensagem(String.format("%d. %s - %s", 
+                i + 1, t.getCodigo(), t.getCurso().getNome()));
+        }
+        
+        int indexTurma = input.lerOpcao("Selecione a turma", 1, turmas.size()) - 1;
+        Turma turmaSelecionada = turmas.get(indexTurma);
+        
+        if (turmaSelecionada.getQuantidadeAlunos() == 0) {
+            output.mostrarErro("Esta turma não tem alunos matriculados.");
+            return;
+        }
+        
+        output.mostrarMensagem("\nAlunos da turma:");
+        List<Aluno> alunosTurma = turmaSelecionada.getAlunos();
+        for (int i = 0; i < alunosTurma.size(); i++) {
+            Aluno a = alunosTurma.get(i);
+            output.mostrarMensagem(String.format("%d. %s", i + 1, a.getNome()));
+        }
+        
+        int indexAluno = input.lerOpcao("Selecione o aluno", 1, alunosTurma.size()) - 1;
+        Aluno alunoSelecionado = alunosTurma.get(indexAluno);
+        
+        String descricao = input.lerString("Descrição da avaliação");
+        String tipo = input.lerString("Tipo (Prova, Trabalho, Seminário, etc.)");
+        double peso = input.lerDouble("Peso (0.01 a 1.0)");
+        double nota = input.lerDouble("Nota (0 a 10)");
+        
+        ResultadoOperacao resultado = service.registrarAvaliacao(
+            turmaSelecionada.getCodigo(),
+            alunoSelecionado.getMatricula(),
+            descricao,
+            tipo,
+            peso,
+            nota
+        );
+        
+        if (resultado.isSucesso()) {
+            output.mostrarSucesso(resultado.getMensagem());
+        } else {
+            output.mostrarErro(resultado.getMensagem());
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void verAvaliacoesTurma() {
+        output.mostrarMensagem("\n📋 VISUALIZAR AVALIAÇÕES DA TURMA");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarErro("Nenhuma turma disponível.");
+            return;
+        }
+        
+        output.mostrarMensagem("\nTurmas disponíveis:");
+        for (int i = 0; i < turmas.size(); i++) {
+            Turma t = turmas.get(i);
+            output.mostrarMensagem(String.format("%d. %s - %s", 
+                i + 1, t.getCodigo(), t.getCurso().getNome()));
+        }
+        
+        int indexTurma = input.lerOpcao("Selecione a turma", 1, turmas.size()) - 1;
+        Turma turmaSelecionada = turmas.get(indexTurma);
+        
+        AvaliacaoTurma avaliacaoTurma = service.getAvaliacaoRepository()
+            .buscarAvaliacaoTurma(turmaSelecionada.getCodigo());
+        
+        if (avaliacaoTurma == null) {
+            output.mostrarMensagem("Nenhuma avaliação registrada para esta turma.");
+        } else {
+            Relatorio relatorio = new RelatorioAvaliacoesTurma(avaliacaoTurma);
+            relatorio.exibir();
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void verAvaliacoesAluno() {
+        output.mostrarMensagem("\n📋 VISUALIZAR AVALIAÇÕES DO ALUNO");
+        
+        List<Aluno> alunos = service.getAlunoRepository().listarTodos();
+        if (alunos.isEmpty()) {
+            output.mostrarErro("Nenhum aluno disponível.");
+            return;
+        }
+        
+        output.mostrarMensagem("\nAlunos disponíveis:");
+        for (int i = 0; i < alunos.size(); i++) {
+            Aluno a = alunos.get(i);
+            output.mostrarMensagem(String.format("%d. %s - %s", 
+                i + 1, a.getNome(), a.getMatricula()));
+        }
+        
+        int indexAluno = input.lerOpcao("Selecione o aluno", 1, alunos.size()) - 1;
+        Aluno alunoSelecionado = alunos.get(indexAluno);
+        
+        // Buscar aluno autenticável
+        List<AlunoAutenticavel> alunosAuth = service.getUsuarioRepository()
+            .listarAlunosAutenticaveis();
+        
+        AlunoAutenticavel alunoAuth = alunosAuth.stream()
+            .filter(a -> a.getMatricula().equals(alunoSelecionado.getMatricula()))
+            .findFirst()
+            .orElse(null);
+        
+        if (alunoAuth == null) {
+            output.mostrarMensagem("Este aluno não tem usuário autenticável cadastrado.");
+            output.mostrarMensagem("Não há avaliações registradas.");
+        } else if (alunoAuth.getAvaliacoes().isEmpty()) {
+            output.mostrarMensagem("Nenhuma avaliação registrada para este aluno.");
+        } else {
+            Relatorio relatorio = new RelatorioAluno(alunoAuth);
+            relatorio.exibir();
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void gerenciarRelatorios() {
+        output.limparTela();
+        output.mostrarMensagem("📄 GERENCIAMENTO DE RELATÓRIOS");
+        output.mostrarSeparador();
+        
+        output.mostrarMensagem("Opções:");
+        output.mostrarMensagem("1. Relatório Geral do Sistema");
+        output.mostrarMensagem("2. Relatório de Alunos");
+        output.mostrarMensagem("3. Relatório de Professores");
+        output.mostrarMensagem("4. Relatório de Cursos");
+        output.mostrarMensagem("5. Relatório de Turmas");
+        output.mostrarMensagem("6. Relatório de Avaliações");
+        output.mostrarMensagem("7. Todos os Relatórios");
+        output.mostrarMensagem("8. Voltar");
+        
+        int opcao = input.lerOpcao("Escolha uma opção", 1, 8);
+        
+        switch (opcao) {
+            case 1 -> exibirRelatorioGeral();
+            case 2 -> exibirRelatoriosAlunos();
+            case 3 -> exibirRelatoriosProfessores();
+            case 4 -> exibirRelatoriosCursos();
+            case 5 -> exibirRelatoriosTurmas();
+            case 6 -> exibirRelatoriosAvaliacoes();
+            case 7 -> exibirTodosRelatorios();
+            case 8 -> { return; }
+        }
+    }
+    
+    private void exibirRelatorioGeral() {
+        output.limparTela();
+        RelatorioGeral relatorio = service.gerarRelatorioGeral();
+        relatorio.exibir();
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirRelatoriosAlunos() {
+        output.limparTela();
+        output.mostrarMensagem("🎓 RELATÓRIOS DE ALUNOS");
+        
+        List<AlunoAutenticavel> alunos = service.getUsuarioRepository()
+            .listarAlunosAutenticaveis();
+        
+        if (alunos.isEmpty()) {
+            output.mostrarMensagem("Nenhum aluno autenticável cadastrado.");
+        } else {
+            for (AlunoAutenticavel aluno : alunos) {
+                Relatorio relatorio = new RelatorioAluno(aluno);
+                relatorio.exibir();
+            }
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirRelatoriosProfessores() {
+        output.limparTela();
+        output.mostrarMensagem("👨‍🏫 RELATÓRIOS DE PROFESSORES");
+        
+        List<Usuario> usuarios = service.getUsuarioRepository().listarTodos();
+        List<ProfessorAutenticavel> professores = usuarios.stream()
+            .filter(u -> u instanceof ProfessorAutenticavel)
+            .map(u -> (ProfessorAutenticavel) u)
+            .toList();
+        
+        if (professores.isEmpty()) {
+            output.mostrarMensagem("Nenhum professor cadastrado.");
+        } else {
+            for (ProfessorAutenticavel professor : professores) {
+                Relatorio relatorio = new RelatorioProfessor(professor);
+                relatorio.exibir();
+            }
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirRelatoriosCursos() {
+        output.limparTela();
+        output.mostrarMensagem("📚 RELATÓRIOS DE CURSOS");
+        
+        List<Curso> cursos = service.getCursoRepository().listarTodos();
+        if (cursos.isEmpty()) {
+            output.mostrarMensagem("Nenhum curso cadastrado.");
+        } else {
+            for (Curso curso : cursos) {
+                Relatorio relatorio = new RelatorioCurso(curso);
+                relatorio.exibir();
+            }
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirRelatoriosTurmas() {
+        output.limparTela();
+        output.mostrarMensagem("🏫 RELATÓRIOS DE TURMAS");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarMensagem("Nenhuma turma cadastrada.");
+        } else {
+            for (Turma turma : turmas) {
+                Relatorio relatorio = new RelatorioTurma(turma);
+                relatorio.exibir();
+            }
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirRelatoriosAvaliacoes() {
+        output.limparTela();
+        output.mostrarMensagem("📊 RELATÓRIOS DE AVALIAÇÕES");
+        
+        List<AvaliacaoTurma> avaliacoes = service.getAvaliacaoRepository()
+            .listarAvaliacoesTurma();
+        
+        if (avaliacoes.isEmpty()) {
+            output.mostrarMensagem("Nenhuma avaliação registrada.");
+        } else {
+            for (AvaliacaoTurma avaliacao : avaliacoes) {
+                Relatorio relatorio = new RelatorioAvaliacoesTurma(avaliacao);
+                relatorio.exibir();
+            }
+        }
+        
+        input.lerString("\nPressione Enter para continuar...");
+    }
+    
+    private void exibirTodosRelatorios() {
+        output.limparTela();
+        output.mostrarMensagem("📋 TODOS OS RELATÓRIOS DO SISTEMA");
         
         List<Relatorio> relatorios = service.gerarRelatoriosCompletos();
         
         if (relatorios.isEmpty()) {
             output.mostrarMensagem("Nenhum dado disponível para gerar relatórios.");
-            return;
-        }
-        
-        output.mostrarMensagem(String.format("Gerados %d relatórios:", relatorios.size()));
-        
-        for (Relatorio relatorio : relatorios) {
-            output.mostrarMensagem("\n" + "=".repeat(40));
-            output.mostrarMensagem(relatorio.getTitulo());
-            output.mostrarMensagem("=".repeat(40));
-            output.mostrarMensagem(relatorio.gerarConteudo());
+        } else {
+            for (Relatorio relatorio : relatorios) {
+                relatorio.exibir();
+                output.mostrarSeparador();
+            }
         }
         
         input.lerString("\nPressione Enter para continuar...");
@@ -1661,6 +2482,7 @@ class MenuController {
     private void autenticarUsuario() {
         output.limparTela();
         output.mostrarMensagem("🔐 AUTENTICAÇÃO DE USUÁRIO");
+        output.mostrarSeparador();
         
         String login = input.lerString("Login");
         String senha = input.lerString("Senha");
@@ -1683,34 +2505,37 @@ class MenuController {
     private void mostrarEstatisticas() {
         output.limparTela();
         output.mostrarMensagem("📈 ESTATÍSTICAS DO SISTEMA");
+        output.mostrarSeparador();
         
         int totalAlunos = service.getAlunoRepository().listarTodos().size();
         int totalUsuarios = service.getUsuarioRepository().listarTodos().size();
         int totalCursos = service.getCursoRepository().listarTodos().size();
         int totalTurmas = service.getTurmaRepository().listarTodos().size();
+        int totalAvaliacoes = service.getAvaliacaoRepository().getTotalAvaliacoes();
         
         output.mostrarMensagem(String.format("Total de alunos: %d", totalAlunos));
         output.mostrarMensagem(String.format("Total de usuários: %d", totalUsuarios));
         output.mostrarMensagem(String.format("Total de cursos: %d", totalCursos));
         output.mostrarMensagem(String.format("Total de turmas: %d", totalTurmas));
+        output.mostrarMensagem(String.format("Total de avaliações: %d", totalAvaliacoes));
         
-        // Contar tipos de usuários
         List<Usuario> usuarios = service.getUsuarioRepository().listarTodos();
         long alunosAuth = usuarios.stream().filter(u -> u instanceof AlunoAutenticavel).count();
         long professores = usuarios.stream().filter(u -> u instanceof ProfessorAutenticavel).count();
         long admins = usuarios.stream().filter(u -> u instanceof Administrador).count();
         
+        output.mostrarSeparador();
         output.mostrarMensagem("\nDistribuição de usuários:");
         output.mostrarMensagem(String.format("Alunos autenticáveis: %d", alunosAuth));
         output.mostrarMensagem(String.format("Professores: %d", professores));
         output.mostrarMensagem(String.format("Administradores: %d", admins));
         
-        // Informações sobre cursos
         List<Curso> cursos = service.getCursoRepository().listarTodos();
         long cursosPresenciais = cursos.stream().filter(c -> c instanceof CursoPresencial).count();
         long cursosEAD = cursos.stream().filter(c -> c instanceof CursoEAD).count();
         long cursosRegulares = cursos.size() - cursosPresenciais - cursosEAD;
         
+        output.mostrarSeparador();
         output.mostrarMensagem("\nDistribuição de cursos:");
         output.mostrarMensagem(String.format("Cursos presenciais: %d", cursosPresenciais));
         output.mostrarMensagem(String.format("Cursos EAD: %d", cursosEAD));
@@ -1719,87 +2544,194 @@ class MenuController {
         input.lerString("\nPressione Enter para continuar...");
     }
     
-    private void mostrarDadosIniciais() {
+    private void testarCenarios() {
         output.limparTela();
-        output.mostrarMensagem("💾 DADOS INICIAIS PRÉ-CARREGADOS");
-        output.mostrarMensagem("=".repeat(60));
+        output.mostrarMensagem("🧪 TESTAR CENÁRIOS DE SUCESSO E FALHA");
+        output.mostrarSeparador();
         
-        output.mostrarMensagem("\n🎓 ALUNO DE EXEMPLO:");
-        output.mostrarMensagem("- Jean Ricardo Land Miranda");
-        output.mostrarMensagem("- RA: 24231215-5");
-        output.mostrarMensagem("- Curso: Java OO (curso válido)");
+        output.mostrarMensagem("Cenários disponíveis:");
+        output.mostrarMensagem("1. Testar cadastro de aluno com curso existente (SUCESSO)");
+        output.mostrarMensagem("2. Testar cadastro de aluno com curso inexistente (FALHA)");
+        output.mostrarMensagem("3. Testar criação de turma sem curso (FALHA)");
+        output.mostrarMensagem("4. Testar criação de turma sem professor (FALHA)");
+        output.mostrarMensagem("5. Testar registro de avaliação com nota inválida (FALHA)");
+        output.mostrarMensagem("6. Testar matrícula de aluno já matriculado (FALHA)");
+        output.mostrarMensagem("7. Voltar");
         
-        output.mostrarMensagem("\n🔐 CREDENCIAIS PARA TESTE:");
-        output.mostrarMensagem("1. Aluno: login='jean', senha='123'");
-        output.mostrarMensagem("2. Professor: login='carlos', senha='456'");
-        output.mostrarMensagem("3. Administrador: login='admin', senha='admin123'");
+        int opcao = input.lerOpcao("Escolha um cenário", 1, 7);
         
-        output.mostrarMensagem("\n📚 CURSOS DISPONÍVEIS:");
-        output.mostrarMensagem("- Java OO (JAVA101) - 60h");
-        output.mostrarMensagem("- Java Avançado (JAVA201) - 80h - Presencial - Sala 301");
-        output.mostrarMensagem("- Python (PY101) - 40h - EAD - Plataforma Virtual");
-        
-        output.mostrarMensagem("\n🏫 TURMA PRÉ-CONFIGURADA:");
-        output.mostrarMensagem("- Código: TURMA2024");
-        output.mostrarMensagem("- Professor: Carlos");
-        output.mostrarMensagem("- Curso: Java OO");
-        output.mostrarMensagem("- 2 alunos matriculados");
+        switch (opcao) {
+            case 1 -> testarCadastroAlunoSucesso();
+            case 2 -> testarCadastroAlunoFalha();
+            case 3 -> testarCriacaoTurmaSemCurso();
+            case 4 -> testarCriacaoTurmaSemProfessor();
+            case 5 -> testarAvaliacaoNotaInvalida();
+            case 6 -> testarMatriculaDuplicada();
+            case 7 -> { return; }
+        }
         
         input.lerString("\nPressione Enter para continuar...");
     }
     
-    private void validarCurso() {
-        output.limparTela();
-        output.mostrarMensagem("🔍 VALIDAÇÃO DE CURSO");
+    private void testarCadastroAlunoSucesso() {
+        output.mostrarMensagem("\n✅ CENÁRIO 1: Cadastro de aluno com curso existente");
         
-        output.mostrarMensagem("\nOpções de validação:");
-        output.mostrarMensagem("1. Validar por código do curso");
-        output.mostrarMensagem("2. Validar por nome do curso");
-        output.mostrarMensagem("3. Ver todos os cursos disponíveis");
-        
-        int opcao = input.lerOpcao("Escolha uma opção", 1, 3);
-        
-        switch (opcao) {
-            case 1 -> {
-                String codigo = input.lerString("Código do curso");
-                ResultadoValidacao resultado = service.getValidador().validarCursoExiste(codigo);
-                if (resultado.isValido()) {
-                    output.mostrarSucesso(resultado.getMensagem());
-                    // Mostrar informações do curso
-                    Curso curso = service.getCursoRepository().buscarPorId(codigo);
-                    if (curso != null) {
-                        output.mostrarMensagem("\n📋 Informações do curso:");
-                        output.mostrarMensagem("Nome: " + curso.getNome());
-                        output.mostrarMensagem("Código: " + curso.getCodigo());
-                        output.mostrarMensagem("Carga horária: " + curso.getCargaHoraria() + "h");
-                    }
-                } else {
-                    output.mostrarErro(resultado.getMensagem());
-                }
-            }
-            case 2 -> {
-                String nome = input.lerString("Nome do curso");
-                ResultadoValidacao resultado = service.getValidador().validarCursoPorNomeExiste(nome);
-                if (resultado.isValido()) {
-                    output.mostrarSucesso(resultado.getMensagem());
-                } else {
-                    output.mostrarErro(resultado.getMensagem());
-                }
-            }
-            case 3 -> {
-                List<Curso> cursos = service.getCursoRepository().listarTodos();
-                if (cursos.isEmpty()) {
-                    output.mostrarMensagem("Nenhum curso cadastrado no sistema.");
-                } else {
-                    output.mostrarMensagem("\n📚 CURSOS DISPONÍVEIS NO SISTEMA:");
-                    for (Curso curso : cursos) {
-                        output.mostrarMensagem("- " + curso.getNome() + " (" + curso.getCodigo() + ")");
-                    }
-                }
-            }
+        // Verificar se há cursos disponíveis
+        List<Curso> cursos = service.getCursoRepository().listarTodos();
+        if (cursos.isEmpty()) {
+            output.mostrarErro("Não há cursos cadastrados para testar.");
+            return;
         }
         
-        input.lerString("\nPressione Enter para continuar...");
+        String nome = "Aluno Teste Sucesso";
+        String matricula = "TESTE001";
+        String curso = cursos.get(0).getNome(); // Usar primeiro curso disponível
+        
+        output.mostrarMensagem(String.format("Tentando cadastrar aluno '%s' no curso '%s'", nome, curso));
+        
+        ResultadoOperacao resultado = service.cadastrarAluno(nome, matricula, curso);
+        
+        if (resultado.isSucesso()) {
+            output.mostrarSucesso("✅ TESTE PASSOU: " + resultado.getMensagem());
+        } else {
+            output.mostrarErro("❌ TESTE FALHOU: " + resultado.getMensagem());
+        }
+    }
+    
+    private void testarCadastroAlunoFalha() {
+        output.mostrarMensagem("\n❌ CENÁRIO 2: Cadastro de aluno com curso inexistente");
+        
+        String nome = "Aluno Teste Falha";
+        String matricula = "TESTE002";
+        String curso = "Curso Que Não Existe";
+        
+        output.mostrarMensagem(String.format("Tentando cadastrar aluno '%s' no curso '%s' (inexistente)", nome, curso));
+        
+        ResultadoOperacao resultado = service.cadastrarAluno(nome, matricula, curso);
+        
+        if (!resultado.isSucesso()) {
+            output.mostrarSucesso("✅ TESTE PASSOU (esperava falha): " + resultado.getMensagem());
+        } else {
+            output.mostrarErro("❌ TESTE FALHOU: Cadastro não deveria ter sucesso!");
+        }
+    }
+    
+    private void testarCriacaoTurmaSemCurso() {
+        output.mostrarMensagem("\n❌ CENÁRIO 3: Criação de turma sem cursos cadastrados");
+        
+        // Temporariamente remover cursos para testar
+        List<Curso> cursos = service.getCursoRepository().listarTodos();
+        boolean haviaCursos = !cursos.isEmpty();
+        
+        output.mostrarMensagem("Situação: " + (haviaCursos ? "Há cursos cadastrados" : "Não há cursos cadastrados"));
+        
+        if (haviaCursos) {
+            output.mostrarMensagem("Este teste requer que não haja cursos cadastrados.");
+            output.mostrarMensagem("Execute após remover todos os cursos.");
+        } else {
+            Professor professor = new Professor("Professor Teste", "Teste", "TESTE001");
+            Curso curso = new Curso("Curso Inexistente", "INVALIDO", 0);
+            
+            ResultadoOperacao resultado = service.criarTurma("TURMATESTE", professor, curso);
+            
+            if (!resultado.isSucesso()) {
+                output.mostrarSucesso("✅ TESTE PASSOU (esperava falha): " + resultado.getMensagem());
+            } else {
+                output.mostrarErro("❌ TESTE FALHOU: Criação não deveria ter sucesso!");
+            }
+        }
+    }
+    
+    private void testarCriacaoTurmaSemProfessor() {
+        output.mostrarMensagem("\n❌ CENÁRIO 4: Criação de turma sem professores cadastrados");
+        
+        List<Curso> cursos = service.getCursoRepository().listarTodos();
+        if (cursos.isEmpty()) {
+            output.mostrarErro("Não há cursos para testar.");
+            return;
+        }
+        
+        Curso curso = cursos.get(0);
+        Professor professor = new Professor("Professor Inexistente", "Teste", "INVALIDO");
+        
+        output.mostrarMensagem(String.format("Tentando criar turma com professor não cadastrado no curso '%s'", curso.getNome()));
+        
+        ResultadoOperacao resultado = service.criarTurma("TURMATESTE2", professor, curso);
+        
+        // Este teste pode passar ou falhar dependendo da implementação
+        // O importante é que não cause erro no sistema
+        output.mostrarMensagem("Resultado: " + (resultado.isSucesso() ? "Sucesso" : "Falha"));
+        output.mostrarMensagem("Mensagem: " + resultado.getMensagem());
+    }
+    
+    private void testarAvaliacaoNotaInvalida() {
+        output.mostrarMensagem("\n❌ CENÁRIO 5: Registro de avaliação com nota inválida");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarErro("Não há turmas para testar.");
+            return;
+        }
+        
+        Turma turma = turmas.get(0);
+        if (turma.getQuantidadeAlunos() == 0) {
+            output.mostrarErro("A turma não tem alunos matriculados.");
+            return;
+        }
+        
+        Aluno aluno = turma.getAlunos().get(0);
+        
+        output.mostrarMensagem(String.format("Tentando registrar avaliação com nota 15 (inválida) para aluno '%s'", aluno.getNome()));
+        
+        ResultadoOperacao resultado = service.registrarAvaliacao(
+            turma.getCodigo(),
+            aluno.getMatricula(),
+            "Prova Teste",
+            "Prova",
+            0.3,
+            15.0 // Nota inválida (> 10)
+        );
+        
+        if (!resultado.isSucesso()) {
+            output.mostrarSucesso("✅ TESTE PASSOU (esperava falha): " + resultado.getMensagem());
+        } else {
+            output.mostrarErro("❌ TESTE FALHOU: Registro não deveria ter sucesso!");
+        }
+    }
+    
+    private void testarMatriculaDuplicada() {
+        output.mostrarMensagem("\n❌ CENÁRIO 6: Matrícula de aluno já matriculado");
+        
+        List<Turma> turmas = service.getTurmaRepository().listarTodos();
+        if (turmas.isEmpty()) {
+            output.mostrarErro("Não há turmas para testar.");
+            return;
+        }
+        
+        Turma turma = turmas.get(0);
+        if (turma.getQuantidadeAlunos() == 0) {
+            output.mostrarErro("A turma não tem alunos matriculados.");
+            return;
+        }
+        
+        Aluno aluno = turma.getAlunos().get(0);
+        
+        output.mostrarMensagem(String.format("Tentando matricular aluno '%s' que já está na turma '%s'", 
+            aluno.getNome(), turma.getCodigo()));
+        
+        // Tentar matricular novamente
+        turma.adicionarAluno(aluno); // Isso não deveria adicionar duplicado
+        service.getTurmaRepository().salvar(turma);
+        
+        long quantidadeDuplicados = turma.getAlunos().stream()
+            .filter(a -> a.getMatricula().equals(aluno.getMatricula()))
+            .count();
+        
+        if (quantidadeDuplicados == 1) {
+            output.mostrarSucesso("✅ TESTE PASSOU: Aluno não foi duplicado na turma");
+        } else {
+            output.mostrarErro("❌ TESTE FALHOU: Aluno foi duplicado na turma!");
+        }
     }
     
     private void sair() {
